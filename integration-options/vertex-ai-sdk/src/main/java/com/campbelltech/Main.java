@@ -13,6 +13,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
@@ -59,11 +60,16 @@ public class Main {
 
     private static GoogleCredentials getGoogleCredentials() throws IOException {
 
-        return GoogleCredentials
-                .fromStream(Objects.requireNonNull(Main.class.getClassLoader().getResourceAsStream(
-                        System.getenv("SERVICE_ACCOUNT_FILE_PATH")))
-                )
+        //GoogleCredentials read credential from file /Users/loc/Dropbox/chat-box-406812-362fdb454ced.json
+        return GoogleCredentials.fromStream(new FileInputStream(System.getenv("SERVICE_ACCOUNT_FILE_PATH")))
                 .createScoped(Lists.newArrayList("https://www.googleapis.com/auth/cloud-platform"));
+
+
+//        return GoogleCredentials
+//                .fromStream(Objects.requireNonNull(Main.class.getClassLoader().getResourceAsStream(
+//                        System.getenv("SERVICE_ACCOUNT_FILE_PATH")))
+//                )
+//                .createScoped(Lists.newArrayList("https://www.googleapis.com/auth/cloud-platform"));
     }
 
     public static String getContentValue() throws IOException {
