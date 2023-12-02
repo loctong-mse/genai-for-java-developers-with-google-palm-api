@@ -20,30 +20,33 @@ import java.util.Scanner;
 
 public class Main {
 
-    public static void main(String[] args) {
-        try {
-            String accessToken = getAccessToken();
-            try (HttpClient client = HttpClient.newBuilder().build()) {
-                String jsonRequestBody = String.format("""
-                        {
-                            "instances": [ { "content": "%s" } ],
-                            "parameters": %s
-                        }
-                        """, getContentValue(), getParameters());
-                HttpRequest request = buildHttpRequest(accessToken, jsonRequestBody);
-                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                System.out.println("Response ->\n" + response.body());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        main(args);
+    public static void main(String[] args) throws IOException, InterruptedException {
+
+        String accessToken = getAccessToken();
+
+        HttpClient client = HttpClient.newBuilder().build();
+
+        String jsonRequestBody = String.format("""
+                {
+                    "instances": [ { "content": "%s" } ],
+                    "parameters": %s
+                }
+                """, getContentValue(), getParameters());
+
+        HttpRequest request = buildHttpRequest(accessToken, jsonRequestBody);
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        System.out.println("Response ->\n" + response.body());
+
+//        main(args);
     }
 
     private static HttpRequest buildHttpRequest(String accessToken, String jsonRequestBody) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(String.format(
-                        "https://%s/v1/projects/%s/locations/%s/publishers/%s/models/%s:predict",
+                        "https://%s%s/v1/projects/%s/locations/%s/publishers/%s/models/%s:predict",
+                        System.getenv("LOCATION_ID"),
                         System.getenv("API_ENDPOINT"),
                         System.getenv("PROJECT_ID"),
                         System.getenv("LOCATION_ID"),
@@ -57,52 +60,74 @@ public class Main {
     }
 
     public static String getContentValue() throws IOException {
+
         String context = System.getenv("CONTEXT");
+
         try (InputStream inputStream = Main.class.getClassLoader().getResourceAsStream("examples.json")) {
             if (inputStream == null) {
+
                 throw new IOException("Resource not found: examples.json");
             }
             try (InputStreamReader reader = new InputStreamReader(inputStream)) {
+
                 Gson gson = new Gson();
                 Map<String, Object>[] examples = gson.fromJson(reader, TypeToken.of(Map[].class).getType());
                 StringBuilder inputOutputInstances = new StringBuilder();
+
                 for (Map<String, Object> example : examples) {
+
                     String inputValue = (String) example.get("input");
                     String outputValue = (String) example.get("output");
                     inputOutputInstances.append(String.format("input: %s\noutput: %s\n\n", inputValue, outputValue));
                 }
+
                 return String.format("%s\n\n%sinput: %s\noutput:\n", context, inputOutputInstances, getPrompt());
             }
         }
     }
 
     private static String getParameters() {
+
         Map<String, Object> parameterMap = new HashMap<>();
-        parameterMap.put("candidateCount", Integer.parseInt(System.getenv("CANDIDATE_COUNT")));
-        parameterMap.put("maxOutputTokens", Integer.parseInt(System.getenv("MAX_OUTPUT_TOKENS")));
-        parameterMap.put("temperature", Double.parseDouble(System.getenv("TEMPERATURE")));
-        parameterMap.put("topP", Double.parseDouble(System.getenv("TOP-P")));
-        parameterMap.put("topK", Integer.parseInt(System.getenv("TOP-K")));
+//        parameterMap.put("candidateCount", Integer.parseInt(System.getenv("CANDIDATE_COUNT")));
+//        parameterMap.put("maxOutputTokens", Integer.parseInt(System.getenv("MAX_OUTPUT_TOKENS")));
+//        parameterMap.put("temperature", Double.parseDouble(System.getenv("TEMPERATURE")));
+//        parameterMap.put("topP", Double.parseDouble(System.getenv("TOP-P")));
+//        parameterMap.put("topK", Integer.parseInt(System.getenv("TOP-K")));
+
+        parameterMap.put("candidateCount", 1); //TODO: ???
+        parameterMap.put("maxOutputTokens", 1024);
+        parameterMap.put("temperature", 0.2);  //TODO: ???
+        parameterMap.put("topP", 0.8);  //TODO: ???
+        parameterMap.put("topK", 40);  //TODO: ???
+
         return new Gson().toJson(parameterMap);
     }
 
     private static String getPrompt() {
+
         System.out.println("Type a prompt:");
+
         Scanner in = new Scanner(System.in);
+
         return in.nextLine();
     }
 
     private static String getAccessToken() throws IOException {
-        try (InputStream serviceAccountStream = Main.class.getClassLoader().getResourceAsStream(
-                System.getenv("SERVICE_ACCOUNT_FILE_PATH"))) {
-            if (serviceAccountStream == null) {
-                throw new FileNotFoundException("Service account file not found");
-            }
-            GoogleCredentials credentials = GoogleCredentials
-                    .fromStream(serviceAccountStream)
-                    .createScoped(Lists.newArrayList(System.getenv("SCOPES")));
-            credentials.refreshIfExpired();
-            return credentials.getAccessToken().getTokenValue();
+
+        InputStream serviceAccountStream = Main.class.getClassLoader().getResourceAsStream(System.getenv("SERVICE_ACCOUNT_FILE_PATH"));
+
+        if (serviceAccountStream == null) {
+            throw new FileNotFoundException("Service account file not found");
         }
+
+        GoogleCredentials credentials = GoogleCredentials
+                .fromStream(serviceAccountStream)
+                .createScoped(Lists.newArrayList("https://www.googleapis.com/auth/cloud-platform"));
+
+        credentials.refreshIfExpired();
+
+        return credentials.getAccessToken().getTokenValue();
+
     }
 }
